@@ -258,6 +258,41 @@ H.make_tabpage_section = function()
 end
 
 -- Work with tabs -------------------------------------------------------------
+-- Switch tabs
+MiniTabline.next_tab = function()
+  local current_idx = H.get_current_tab_idx()
+  local tab = {}
+  if current_idx == #H.tabs then
+    tab = H.tabs[1]
+  else
+    tab = H.tabs[current_idx + 1]
+  end
+  vim.api.nvim_command(tab.buf_id .. 'b')
+end
+
+MiniTabline.prev_tab = function()
+  local current_idx = H.get_current_tab_idx()
+  local tab = {}
+  if current_idx == 1 then
+    tab = H.tabs[#H.tabs]
+  else
+    tab = H.tabs[current_idx - 1]
+  end
+  vim.api.nvim_command(tab.buf_id .. 'b')
+end
+
+H.get_current_tab_idx = function()
+  local current_buf = vim.api.nvim_get_current_buf()
+  local current_idx = 0
+  for idx, tab in ipairs(H.tabs) do
+    if tab.buf_id == current_buf then
+      current_idx = idx
+      break
+    end
+  end
+  return current_idx
+end
+
 -- List tabs
 H.list_tabs = function()
   local tabs = {}
@@ -267,12 +302,31 @@ H.list_tabs = function()
       tab['hl'] = H.construct_highlight(buf_id)
       tab['tabfunc'] = H.construct_tabfunc(buf_id)
       tab['label'], tab['label_extender'] = H.construct_label_data(buf_id)
+      tab['buftype'] = vim.bo[tab.buf_id].buftype
 
       table.insert(tabs, tab)
     end
   end
-
+  
+  tabs = H.move_terminal_tabs_to_font(tabs)
   H.tabs = tabs
+end
+
+H.move_terminal_tabs_to_front = function(tabs)
+  local terminal_tabs = {}
+  for i, tab in ipairs(tabs) do
+    if tab.buftype == 'terminal' then
+      table.insert(terminal_tabs, i)
+    end
+  end
+  local count = 0
+  table.sort(terminal_tabs, function(a,b) return a > b end)
+  for _, idx in ipairs(terminal_tabs) do 
+    local tab = table.remove(tabs, idx + count)
+    table.insert(tabs, 1, tab)
+    count = count + 1
+  end
+  return tabs
 end
 
 H.is_buffer_in_minitabline = function(buf_id) return vim.bo[buf_id].buflisted end
